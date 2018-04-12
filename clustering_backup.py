@@ -42,6 +42,13 @@ from neighbor_to_neighbor_2 import initByNeighborhood
 
 # from floyd import superpixels
 
+# MDS lib
+from sklearn.manifold import MDS
+from sklearn import manifold
+from mpl_toolkits.mplot3d import Axes3D
+from time import time
+from matplotlib.ticker import NullFormatter
+
 alpha = 25
 
 def initDatasets():
@@ -370,6 +377,10 @@ def initVec2(matrix=None):
         matrix = distanceMatrix(X)
 
     w, v = LA.eig(matrix)
+    w = np.real(w)
+    v = np.real(v)
+    # print("----------w---------------", w)
+    # print("------------w.argsort-----------", np.argsort(w))
 
     # get 1-d vector, which is eigenvector*eigenvalue
     # index = np.argsort(w)[0]
@@ -379,16 +390,16 @@ def initVec2(matrix=None):
     # plt.show()
 
     # get 3-d vector, cal distance by x**2 + y**2 + z**2
-    index0 = np.argsort(w)[0]
-    vector0 = w[index0]*v[:, index0]
-    index1 = np.argsort(w)[1]
-    vector1 = w[index1]*v[:, index1]
-    index2 = np.argsort(w)[2]
-    vector2 = w[index2]*v[:, index2]
-    index3 = np.argsort(w)[3]
-    vector3 = w[index3]*v[:, index3]
-    index4 = np.argsort(w)[4]
-    vector4 = w[index4]*v[:, index4]
+    # index0 = np.argsort(w)[0]
+    # vector0 = w[index0]*v[:, index0]
+    # index1 = np.argsort(w)[1]
+    # vector1 = w[index1]*v[:, index1]
+    # index2 = np.argsort(w)[2]
+    # vector2 = w[index2]*v[:, index2]
+    # index3 = np.argsort(w)[3]
+    # vector3 = w[index3]*v[:, index3]
+    # index4 = np.argsort(w)[4]
+    # vector4 = w[index4]*v[:, index4]
 
     # index0 = np.argsort(w)[::-1][0]
     # vector0 = w[index0]*v[:, index0]
@@ -401,16 +412,16 @@ def initVec2(matrix=None):
     # index4 = np.argsort(w)[::-1][4]
     # vector4 = w[index4]*v[:, index4]
 
-    # index0 = np.argsort(w)[0]
-    # vector0 = v[:, index0]
-    # index1 = np.argsort(w)[1]
-    # vector1 = v[:, index1]
-    # index2 = np.argsort(w)[2]
-    # vector2 = v[:, index2]
-    # index3 = np.argsort(w)[3]
-    # vector3 = v[:, index3]
-    # index4 = np.argsort(w)[4]
-    # vector4 = v[:, index4]
+    index0 = np.argsort(w)[0]
+    vector0 = v[:, index0]
+    index1 = np.argsort(w)[1]
+    vector1 = v[:, index1]
+    index2 = np.argsort(w)[2]
+    vector2 = v[:, index2]
+    index3 = np.argsort(w)[3]
+    vector3 = v[:, index3]
+    index4 = np.argsort(w)[4]
+    vector4 = v[:, index4]
 
     # index0 = np.argsort(w)[-1]
     # vector0 = v[:, index0]
@@ -420,6 +431,8 @@ def initVec2(matrix=None):
     # vector2 = v[:, index2]
     # index3 = np.argsort(w)[-4]
     # vector3 = v[:, index3]
+
+
     # index4 = np.argsort(w)[-5]
     # vector4 = v[:, index4]
 
@@ -1060,7 +1073,7 @@ def nonzeroValue(origVec, gapVec, a):
 
 def nonzeroValue2(origVec, gapVec):
     indexVec = [0]
-    threshold = 0.001
+    threshold = 0
     preIndex = 0
     labelVal = 1
     unSortedLabelVec = []
@@ -1750,20 +1763,142 @@ def iterative_choose_partition_L1_norm():
 def matrix_to_label(matrix, vector_space_label=None):
     sortedVector1, sortedVector2, sortedVector3, sortedVector4, sortedVector5, sortIndex1, sortIndex2, sortIndex3, sortIndex4, sortIndex5, vector0, vector1, vector2, vector3, vector4, X1, X2 = initVec2(matrix)
 
-    # plot eigenvector space with vector_space_label
-    # matplotlib.interactive(True)
-    fig = plt.figure()
-    ax = Axes3D(fig, elev=-150, azim=110)
-    # ax.scatter(vector0, vector1, vector2, c=vector_space_label)
-    c = np.zeros(len(vector0))
-    c[55:] = 1
-    c[:20] = 2
-    ax.scatter(vector0, vector1, vector2, c=c)
-    ax.set_title("vector space")
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
-    plt.show()
+    # man-labor to construct vector_space_label
+    # man_labor = [[0, 1, 29],
+    #              [2, 3, 4, 22, 30, 31],
+    #              [5, 6, 19, 21, 24, 32, 35],
+    #              [7, 8, 9, 10, 23, 33],
+    #              [11, 12, 13, 14, 15, 25, 26, 34, 37],
+    #              [16, 17, 18, 20, 27, 28, 36],
+    #              [42, 53, 73, 79, 96, 97, 109, 111, 123, 125, 134],
+    #              [43, 45, 49, 50, 61, 68, 74, 80, 89, 91, 92, 102, 105, 108, 114, 115, 119, 121, 127, 130, 135],
+    #              [47, 46, 48, 69, 65, 57, 71, 82, 83, 87, 93, 98, 107, 103, 116, 120, 128, 133],
+    #              [39, 41, 44, 56, 62, 67, 85],
+    #              [58, 51, 54, 63, 64, 72, 81, 90, 88, 100, 112, 126, 124, 131, 55, 60, 52, 59, 40, 66, 70, 75, 78, 77, 76, 94, 95, 84, 86, 99, 106, 103, 101, 117, 113, 110, 122, 129, 118, 132],
+    #              [148, 159, 176],
+    #              [145, 146, 147, 153, 158, 149, 164, 165, 164, 165, 181, 183, 166, 169],
+    #              [137, 141, 142, 152, 157, 162, 160, 161, 170, 171, 179, 180, 184],
+    #              [136],
+    #              [143, 138, 154, 173, 185, 174],
+    # [139, 144, 140, 151, 155, 150, 156, 163, 167, 168, 172, 175, 182, 178, 177]]
+
+    # l = 0
+    # new_vector_space_label = np.zeros(len(vector_space_label))
+    # man_labor_label = np.asarray(man_labor)
+    # for i in range(len(man_labor_label)):
+    #     n_vector = man_labor_label[i]
+    #     for j in range(len(n_vector)):
+    #         k = n_vector[j]
+    #         new_vector_space_label[k] = i
+    #         # new_vector_space_label[man_labor_label[i, j]] = i
+
+    # # plot eigenvector space with vector_space_label
+    # # matplotlib.interactive(True)
+    # fig = plt.figure()
+    # ax = Axes3D(fig, elev=-150, azim=110)
+    # ax.scatter(vector0, vector1, vector2, c=new_vector_space_label, cmap="magma")
+    # c = np.zeros(len(vector0))
+    # # c[:50] = 1
+    # # ax.scatter(vector0, vector1, vector2, c=c)
+    # # ax.scatter(vector0, vector1, vector2)
+    # ax.set_title("vector space")
+    # ax.set_xlabel("x")
+    # ax.set_ylabel("y")
+    # ax.set_zlabel("z")
+
+    # # MDS test
+    # n_points = len(vector0)
+    # n_neighbors = 15
+    # n_components = 2
+    # color = deepcopy(new_vector_space_label)
+    # X = [[vector0[i], vector1[i], vector2[i]] for i in range(len(vector0))]
+    # X = np.asarray(X)
+
+    # mds = manifold.MDS(max_iter = 100, n_init = 1)
+    # Y = mds.fit_transform(X)
+    # plt.figure()
+    # plt.scatter(Y[:, 0], Y[:, 1], c=vector_space_label, cmap=plt.cm.Spectral)
+    # plt.show()
+
+
+    # fig = plt.figure(figsize=(15, 8))
+    # plt.suptitle("Manifold Learning with %i points, %i neighbors(arg)"
+    #              % (n_points, n_neighbors), fontsize=14)
+
+
+    # ax = fig.add_subplot(251, projection='3d')
+    # ax.scatter(X[:, 0], X[:, 1], X[:, 2], c=color, cmap=plt.cm.Spectral)
+    # ax.view_init(4, -72)
+
+    # methods = ['standard', 'ltsa', 'hessian', 'modified']
+    # labels = ['LLE', 'LTSA', 'Hessian LLE', 'Modified LLE']
+
+    # for i, method in enumerate(methods):
+    #     t0 = time()
+    #     Y = manifold.LocallyLinearEmbedding(n_neighbors, n_components,
+    #                                         eigen_solver='auto',
+    #                                         method=method).fit_transform(X)
+    #     t1 = time()
+    #     print("%s: %.2g sec" % (methods[i], t1 - t0))
+
+    #     ax = fig.add_subplot(252 + i)
+    #     plt.scatter(Y[:, 0], Y[:, 1], c=color, cmap=plt.cm.Spectral)
+    #     plt.title("%s (%.2g sec)" % (labels[i], t1 - t0))
+    #     ax.xaxis.set_major_formatter(NullFormatter())
+    #     ax.yaxis.set_major_formatter(NullFormatter())
+    #     plt.axis('tight')
+
+    # t0 = time()
+    # Y = manifold.Isomap(n_neighbors, n_components).fit_transform(X)
+    # t1 = time()
+    # print("Isomap: %.2g sec" % (t1 - t0))
+    # ax = fig.add_subplot(257)
+    # plt.scatter(Y[:, 0], Y[:, 1], c=color, cmap=plt.cm.Spectral)
+    # plt.title("Isomap (%.2g sec)" % (t1 - t0))
+    # ax.xaxis.set_major_formatter(NullFormatter())
+    # ax.yaxis.set_major_formatter(NullFormatter())
+    # plt.axis('tight')
+
+    # t0 = time()
+    # mds = manifold.MDS(n_components, max_iter=100, n_init=1)
+    # Y = mds.fit_transform(X)
+    # t1 = time()
+    # print("MDS: %.2g sec" % (t1 - t0))
+    # ax = fig.add_subplot(258)
+    # plt.scatter(Y[:, 0], Y[:, 1], c=color, cmap=plt.cm.Spectral)
+    # plt.title("MDS (%.2g sec)" % (t1 - t0))
+    # ax.xaxis.set_major_formatter(NullFormatter())
+    # ax.yaxis.set_major_formatter(NullFormatter())
+    # plt.axis('tight')
+
+
+    # t0 = time()
+    # se = manifold.SpectralEmbedding(n_components=n_components,
+    #                                 n_neighbors=n_neighbors)
+    # Y = se.fit_transform(X)
+    # t1 = time()
+    # print("SpectralEmbedding: %.2g sec" % (t1 - t0))
+    # ax = fig.add_subplot(259)
+    # plt.scatter(Y[:, 0], Y[:, 1], c=color, cmap=plt.cm.Spectral)
+    # plt.title("SpectralEmbedding (%.2g sec)" % (t1 - t0))
+    # ax.xaxis.set_major_formatter(NullFormatter())
+    # ax.yaxis.set_major_formatter(NullFormatter())
+    # plt.axis('tight')
+
+    # t0 = time()
+    # tsne = manifold.TSNE(n_components=n_components, init='pca', random_state=0)
+    # Y = tsne.fit_transform(X)
+    # t1 = time()
+    # print("t-SNE: %.2g sec" % (t1 - t0))
+    # ax = fig.add_subplot(2, 5, 10)
+    # plt.scatter(Y[:, 0], Y[:, 1], c=color, cmap=plt.cm.Spectral)
+    # plt.title("t-SNE (%.2g sec)" % (t1 - t0))
+    # ax.xaxis.set_major_formatter(NullFormatter())
+    # ax.yaxis.set_major_formatter(NullFormatter())
+    # plt.axis('tight')
+
+    # plt.show()
+
 
     ''' previous method, find L2 or L1 distance to choose which eigenvector
 
@@ -1936,7 +2071,6 @@ def matrix_to_label(matrix, vector_space_label=None):
 
     '''
 
-
     ''' method for choose eigenvector slice, threshold.
 
         notice: partition only on smallest eigenvector.
@@ -1949,35 +2083,61 @@ def matrix_to_label(matrix, vector_space_label=None):
     unsortVector = vector1
     sortIndex = np.argsort(unsortVector)
     sortedVector = [unsortVector[i] for i in sortIndex]
-    plt.figure()
-    plt.plot(sortedVector)
-    plt.show()
+    # plt.figure()
+    # plt.plot(sortedVector)
+    # plt.show()
 
-    while iteration < 2:
-        labelVector, x = ADMM3(sortedVector, sortIndex, cut_point_number+1, 20000)
+    #     labelVector,x = ADMM3(sortedVector, sortIndex, cut_point_number+1, 2000)
+
+    # while iteration < 20:
+    #     labelVector, x = ADMM3(sortedVector, sortIndex, cut_point_number+1, 2000)
         # print("------------------labelVector---------", len(labelVector))
-        labels = []
-        for i in range(len(labelVector)):
-            if labelVector[i] not in labels:
-                labels.append(labelVector[i])
-        num = []
-        for i in range(len(labels)):
-            l_count = 0
-            for j in range(len(labelVector)):
-                if labelVector[j] == labels[i]:
-                    l_count += 1
-            num.append(l_count)
-        num_min = min(num)
-        print("--------------num--------------", num)
-        print("--------------num_min---------------", num_min)
+        # labels = []
+        # for i in range(len(labelVector)):
+        #     if labelVector[i] not in labels:
+        #         labels.append(labelVector[i])
+        # num = []
+        # for i in range(len(labels)):
+        #     l_count = 0
+        #     for j in range(len(labelVector)):
+        #         if labelVector[j] == labels[i]:
+        #             l_count += 1
+        #     num.append(l_count)
+        # num_min = min(num)
+        # print("--------------num--------------", num)
+        # print("--------------num_min---------------", num_min)
 
-        # if num_min < l_percent * len(sortedVector):
-        if num_min < l_num:
-            break
-        iteration += 1
-        cut_point_number += 1
+        # # if num_min < l_percent * len(sortedVector):
+        # if num_min < l_num:
+        #     break
+        # iteration += 1
+        # cut_point_number += 1
 
-    print("------------------cut_point_number---------", cut_point_number+1)
+        # fig = plt.figure()
+        # ax = Axes3D(fig, elev=-150, azim=110)
+        # ax.scatter(vector0, vector1, vector2, c=labelVector, cmap="magma")
+        # c = np.zeros(len(vector0))
+        # ax.set_title("vector space")
+        # ax.set_xlabel("x")
+        # ax.set_ylabel("y")
+        # ax.set_zlabel("z")
+
+    # print("------------------cut_point_number---------", cut_point_number+1)
+
+    labelVector, x = ADMM3(sortedVector, sortIndex, 40, 10000)
+    fig = plt.figure()
+    ax = Axes3D(fig, elev=-150, azim=110)
+    ax.scatter(vector0, vector1, vector2, cmap="magma")
+    # ax.scatter(vector0, vector1, vector2, c=labelVector, cmap="magma")
+    c = np.zeros(len(vector0))
+    ax.set_title("vector space")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+
+    fig = plt.figure()
+    plt.plot(vector1)
+
     return labelVector
 
 def gaussian_plot():
@@ -2268,4 +2428,6 @@ if __name__ == "__main__":
 
     # iterative_choose_partition1()
     # iterative_choose_partition3()
-    iterative_choose_partition_L1_norm()
+    # iterative_choose_partition_L1_norm()
+
+    matrix_to_label()

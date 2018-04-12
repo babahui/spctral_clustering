@@ -17,7 +17,7 @@ import scipy as sp
 import time
 from copy import deepcopy
 from scipy.sparse.csgraph import floyd_warshall, dijkstra, bellman_ford, shortest_path
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix 
 from scipy.sparse.csgraph import csgraph_from_dense
 
 # ADMM method lib
@@ -32,7 +32,9 @@ from skimage.io import imsave
 
 # import from ../clustering-backup.py
 import sys
-sys.path.insert(0, '/home/yy/hust_lab/CV/spectral_clustering')
+sys.path.insert(0, '/home/yy/hust_lab/CV/github_spectral_clustering')
+sys.path.insert(0, '/home/yy/hust_lab/CV/github_spectral_clustering/reconstruct_project')
+import admm_algorithms
 import clustering_backup
 
 import math
@@ -47,11 +49,12 @@ from skimage.future import graph
 
 import networkx as nx
 from scipy import sparse
-from scipy.sparse import linalg
+from scipy.sparse import linalg as SCI
+
+import pylab as pl
 
 
-
-N = 100
+N = 400
 
 # in /image/test
 # IMAGE_NAME = "249061.jpg"
@@ -65,9 +68,13 @@ N = 100
 # in /image/train
 # IMAGE_NAME = "118035.jpg"
 
-IMAGE_NAME = "113009.jpg"
+# IMAGE_NAME = "113009.jpg"
 
 # IMAGE_NAME = "124084.jpg"
+
+IMAGE_NAME = "65019.jpg"
+
+# IMAGE_NAME = "242078.jpg"
 
 # IMAGE_NAME = "35070.jpg"
 
@@ -189,21 +196,6 @@ def superpixels_neighbor_method():
 
     print("segments: ", segments)
 
-    # show the output of SLIC
-    fig = plt.figure()
-    # ax = fig.add_subplot(1, 1, 1)
-    # ax.imshow(mark_boundaries(image, segments))
-    # plt.imshow(mark_boundaries(image, segments, color=(0, 0, 1)))
-    label_segments = deepcopy(segments)
-    label_min = 55
-    label_max = 100
-    for i in range(label_segments.shape[0]):
-        for j in range(label_segments.shape[1]):
-            if label_min <= label_segments[i, j] <= label_max:
-                label_segments[i, j] = 1000
-    plt.imshow(mark_boundaries(image, label_segments, color=(0, 0, 1)))
-    plt.show()
-
     image = np.asarray(image)
     segments = np.asarray(segments)
     row = image.shape[0]
@@ -224,6 +216,10 @@ def superpixels_neighbor_method():
             l = segments[i, j]
             if l not in segmentsLabel:
                 segmentsLabel.append(l)
+    for i in range(len(segmentsLabel)-1):
+        if segmentsLabel[i] + 1 != segmentsLabel[i+1]:
+            print("False")
+
 
     position = []
     for i in segmentsLabel:
@@ -233,6 +229,25 @@ def superpixels_neighbor_method():
                 if segments[m, n] == i:
                     pixel_position.append([m, n])
         position.append(pixel_position)
+
+    # # show the output of SLIC
+    # fig = plt.figure()
+    # # ax = fig.add_subplot(1, 1, 1)
+    # # ax.imshow(mark_boundaries(image, segments))
+    # # plt.imshow(mark_boundaries(image, segments, color=(0, 0, 1)))
+    # label_segments_fi = deepcopy(segments)
+    # # label_min = [100, 250]
+    # # label_max = [200, 300]
+    # # for i in range(label_segments.shape[0]):
+    # #     for j in range(label_segments.shape[1]):
+    # #         if label_min[0] <= label_segments[i, j] <= label_max[0] or label_min[1] <= label_segments[i, j] <= label_max[1]:
+    # #             label_segments[i, j] = 1000
+    # for i in range(len(position)-50, len(position)):
+    #     for pos in position[i]:
+    #         [m, n] = pos
+    #         label_segments_fi[m, n] = 1000
+    # plt.imshow(mark_boundaries(image, label_segments_fi, color=(0, 0, 1)))
+    # plt.show()
 
     # generate position method 2
     # max_num = np.max(segments_copy)
@@ -426,9 +441,13 @@ def superpixels_neighbor_method():
         for j in position[i]:
             [m, n] = j
             val += 0.299*image[m, n, 0] + 0.587*image[m, n, 1] + 0.114*image[m, n, 2]
-            red_val += 0.299*image[m, n, 0]
-            green_val += 0.587*image[m, n, 1]
-            blue_val += 0.114*image[m, n, 2]
+            # red_val += 0.299*image[m, n, 0]
+            # green_val += 0.587*image[m, n, 1]
+            # blue_val += 0.114*image[m, n, 2]
+
+            red_val += image[m, n, 0]
+            green_val += image[m, n, 1]
+            blue_val += image[m, n, 2]
             # val += image[m, n]
         average.append(val/len(position[i]))
         red_average.append(red_val/len(position[i]))
@@ -446,6 +465,50 @@ def superpixels_neighbor_method():
             corj += n
         avePos.append([cori/len(position[i]), corj/len(position[i])])
 
+    # record superpixels center position if RGB satisfy requrement.
+    r_thre = 100
+    g_thre = 100
+    b_thre = 100
+    plot_position = []
+    distance_label = []
+    num_marker = 0
+    vector_space_label = []
+    spe_color_position = []
+    # vector_space_label = np.zeros(len(position))
+    label_segments = deepcopy(segments)
+    # for i in range(len(position)):
+    for i in segmentsLabel:
+        if red_average[i] >= r_thre and green_average[i] >= g_thre and blue_average[i] <= b_thre:
+            plot_position.append(avePos[i])
+            distance_label.append(num_marker)
+            num_marker += 1
+            vector_space_label.append(1)
+            spe_color_position.append(avePos[i])
+            for pos in position[i]:
+                [m, n] = pos
+                label_segments[m, n] = 1000
+        # elif red_average[i] <= 100 and green_average[i] <= 100 and blue_average[i] <= 100:
+        #     vector_space_label.append(2)
+        #     for pos in position[i]:
+        #         [m, n] = pos
+        #         label_segments[m, n] = 2000
+        else:
+            vector_space_label.append(0)
+
+
+    # show the output of SLIC
+    # fig = plt.figure()
+    # # ax = fig.add_subplot(1, 1, 1)
+    # # ax.imshow(mark_boundaries(image, segments))
+    # # plt.imshow(mark_boundaries(image, segments, color=(0, 0, 1)))
+    # plt.imshow(mark_boundaries(image, label_segments, color=(0, 0, 1)))
+    # plot_position = np.asarray(plot_position)
+    # # plt.scatter(plot_position[:, 1],  plot_position[:, 0])
+    # for x, y, z in zip(plot_position[:, 1], plot_position[:, 0], distance_label):
+    #     pl.text(x, y, str(z), color="red", fontsize=12)
+    # # pl.plot(plot_position[:, 1],  plot_position[:, 0], distance_label, color="red", fontsize=12)
+    # plt.show()
+
     # fully connected
     # color_array = []
     # for i in range(graph_row):
@@ -462,6 +525,13 @@ def superpixels_neighbor_method():
             graph[i, j] = abs(average[i] - average[j])
                 # graph[i, j] = math.exp(-(average[i]-average[j])**2 / elp)
 
+    distance_graph = np.zeros((len(spe_color_position), len(spe_color_position)))
+    for i in range(len(spe_color_position)):
+        for j in range(len(spe_color_position)):
+            [x1, y1] = spe_color_position[i]
+            [x2, y2] = spe_color_position[j]
+            # print(x1, y1, x2, y2)
+            distance_graph[i, j] = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
     ''' add constraint on neighbor and color.
 
@@ -708,7 +778,7 @@ def superpixels_neighbor_method():
     #             print("graph problem")
 
     print("after graph: ", graph)
-    return graph, position, row, col, segments_copy
+    return graph, position, row, col, segments_copy, vector_space_label, distance_graph, distance_label
 
 def spectral_clustering_method(color_array_np):
     color_metric = []
@@ -1312,7 +1382,7 @@ def nonzeroValue2(origVec, gapVec):
     return indexVec[:-1], unSortedLabelVec
 
 
-def superpixels_neighbor_method_plot(matrix, position, row, col, segments, image):
+def superpixels_neighbor_method_plot(reLabel, position, row, col, segments, image, vector_space_label=None, distance_graph=None, distance_label=None):
     # start_time = time.time()
     # initByFloyd()
     # print(time.time()-start_time)
@@ -1331,7 +1401,12 @@ def superpixels_neighbor_method_plot(matrix, position, row, col, segments, image
     # reLabel = classMatrix(matrix)
 
     # new method, auto choose parameters
-    reLabel = clustering_backup.matrix_to_label(matrix)
+    # reLabel = clustering_backup.matrix_to_label(matrix, vector_space_label)
+
+
+    # reLabel = clustering_backup.matrix_to_label(distance_graph, distance_label)
+
+
     # print("reLabel-----------------------:", reLabel)
 
     labelVec = []
@@ -1377,6 +1452,7 @@ def superpixels_neighbor_method_plot(matrix, position, row, col, segments, image
     for l in range(len(labelVec)):
         plt.contour(finalLabel==l, contour=1, colors=[plt.cm.spectral(l/float(len(labelVec)))])
 
+    matplotlib.interactive(False)
     plt.show()
     # imsave(PATH, mark_boundaries(image, finalLabel, color=(0,0,1)))
 
@@ -1455,17 +1531,18 @@ def slic_our_method():
     SLIC to construct distance matrix, our partition method to eigenspace
     '''
 
-    IMAGE_NAME = "113009.jpg"
+    # IMAGE_NAME = "113009.jpg"
     # IMAGE_NAME = "3063.jpg"
-    # IMAGE_NAME = "35070.jpg"
+    IMAGE_NAME = "385028.jpg"
 
-    IMAGE = "/home/yy/matlab/BSR/BSDS500/data/images/train/" + IMAGE_NAME
+ #   IMAGE = "/home/yy/matlab/BSR/BSDS500/data/images/train/" + IMAGE_NAME
+    IMAGE = "/home/yy/berkeley_datasets/BSR/BSDS500/data/images/train/" + IMAGE_NAME
     # IMAGE = "/home/yy/matlab/BSR/BSDS500/data/images/test/" + IMAGE_NAME
     img = scipy.misc.imread(IMAGE)
 
     # img = data.coffee()
-    segments = segmentation.slic(img, compactness=30, n_segments=400)
-    segments_copy = segmentation.slic(img, compactness=30, n_segments=400)
+    segments = segmentation.slic(img, compactness=30, n_segments=N)
+    segments_copy = deepcopy(segments)
     # segments = np.asarray(segments)
     # row = image.shape[0]
     # col = image.shape[1] # row = segments.shape[0]
@@ -1495,8 +1572,8 @@ def slic_our_method():
         position.append(pixel_position)
 
     # generate graph matrix
-    g = graph.rag_mean_color(img, segments, mode='similarity', connectivity=2)
-    # g = graph.rag_mean_color(img, segments, mode='distance', connectivity=2)
+    g = graph.rag_mean_color(img, segments, mode='similarity', connectivity=4)
+    # g = graph.rag_mean_color(img, segments, mode='distance', connectivity=3)
     # print(g.edges(data=True))
     print(len(g.edges(data=True)))
 
@@ -1510,8 +1587,40 @@ def slic_our_method():
     matrix = d2 * (d - w) * d2
     matrix = matrix.toarray()
 
-    # vals, vectors = linalg.eigsh(d2 * (d - w) * d2, which='SM', k=min(100, m - 2))
-    # vals, vectors = np.real(vals), np.real(vectors)
+    print("-------------------------matrix:", matrix)
+    # distance of superpixels not neighbor = inf
+    # inf_matrix = deepcopy(matrix)
+    # for i in range(matrix.shape[0]):
+    #     for j in range(matrix.shape[1]):
+    #         if matrix[i, j] == 0:
+    #             inf_matrix[i, j] = 10000
+
+    # distane of superpixels with continuity
+    # continue_matrix = floyd_func(matrix)
+    # print("continu matrix", continue_matrix)
+
+    matplotlib.interactive(True)
+
+    vals, vectors = SCI.eigsh(d2 * (d - w) * d2, which='SM', k=min(100, m - 2))
+    vals, vectors = np.real(vals), np.real(vectors)
+    index1, index2, index3 = np.argsort(vals)[0], np.argsort(vals)[1], np.argsort(vals)[2]
+    ev1, ev2, ev3 = vectors[:, index1], vectors[:, index2], vectors[:, index3]
+    # sortIndex = np.argsort(ev2)
+    # sortedVector = [ev2[i] for i in sortIndex]
+    # reLabel, mmm = clustering_backup.ADMM3(sortedVector, sortIndex, 10, 100000)
+    reLabel = admm_algorithms.admm(n_vector=ev2, num_cuts=10)
+    fig = plt.figure()
+    ax = Axes3D(fig, elev=-150, azim=110)
+    ax.scatter(ev1, ev2, ev3, c=reLabel)
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.set_title("n_cut eigenspace")
+
+    fig = plt.figure()
+    # plt.plot(ev2)
+    plt.scatter(ev2, np.ones(len(ev2)), c=reLabel)
+    plt.title("n_cut vector")
 
     # print("vals", vals)
     # # plot eigenvector space with vector_space_label
@@ -1543,7 +1652,11 @@ def slic_our_method():
     # plt.show()
 
     # parameters: matrix, position, row, col, segments
-    superpixels_neighbor_method_plot(matrix, position, row, col, segments, img)
+
+    superpixels_neighbor_method_plot(reLabel, position, row, col, segments, img)
+    # superpixels_neighbor_method_plot(matrix, position, row, col, segments, img)
+    # superpixels_neighbor_method_plot(inf_matrix, position, row, col, segments, img)
+    # superpixels_neighbor_method_plot(continue_matrix, position, row, col, segments, img)
 
 if __name__ == "__main__":
     # superpixels_neighbor_method_plot()
@@ -1563,8 +1676,8 @@ if __name__ == "__main__":
 
     # plt.show()
 
-    # slic_our_method()
+    slic_our_method()
 
-    image = scipy.misc.imread(IMG, mode="RGB")
-    matrix, position, row, col, segments = superpixels_neighbor_method()
-    superpixels_neighbor_method_plot(matrix, position, row, col, segments, image)
+    # image = scipy.misc.imread(IMG, mode="RGB")
+    # matrix, position, row, col, segments, vector_space_label, distance_graph, distance_label = superpixels_neighbor_method()
+    # superpixels_neighbor_method_plot(matrix, position, row, col, segments, image, vector_space_label, distance_graph, distance_label)
